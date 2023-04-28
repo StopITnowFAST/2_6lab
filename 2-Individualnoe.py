@@ -4,48 +4,22 @@
 import sys
 import argparse
 from pathlib import Path
-from itertools import islice
-
-space = "    "
-branch = "│   "
-tee = "├── "
-last = "└── "
 
 
-def tree(dir_path, level=-1, limit_to_directories=False, length_limit=1000):
+def tree(dir_path, level, only_dir=-1):
     dir_path = Path(dir_path)
-    files = 0
-    directories = 0
-
-    def inner(dir_path, prefix="", level=-1):
-        nonlocal files, directories
-
-        if not level:
-            return
-
-        if limit_to_directories:
-            contents = [d for d in dir_path.iterdir() if d.is_dir()]
-
-        else:
-            contents = list(dir_path.iterdir())
-        pointers = [tee] * (len(contents) - 1) + [last]
-
-        for pointer, path in zip(pointers, contents):
-            if path.is_dir():
-                yield prefix + pointer + path.name
-                directories += 1
-                extension = branch if pointer == tee else space
-                yield from inner(path, prefix=prefix + extension, level=level - 1)
-
-            elif not limit_to_directories:
-                yield prefix + pointer + path.name
-                files += 1
-
-    print(dir_path.name)
-    iterator = inner(dir_path, level=level)
-    for line in islice(iterator, length_limit):
-        print(line)
-    print(f"\n{directories} Каталогов" + (f", {files} Файлов" if files else ""))
+    level += 1
+    print(f'+ {dir_path}')
+    for path in sorted(dir_path.rglob('*')):
+        depth = len(path.relative_to(dir_path).parts)
+        if depth < level:
+            spacer = '   ' * depth
+            if only_dir:
+                print(f'{spacer}+ {path.name}')
+            else:
+                t = Path(path.name)
+                if t.is_dir():
+                    print(f'{spacer}+ {path.name}')
 
 
 def main(command_line=None):
@@ -55,50 +29,30 @@ def main(command_line=None):
 
     parser.add_argument("lvl", type=int, help="Уровень поиска")
 
-    parser.add_argument("--way", type=str, help="Путь")
+    parser.add_argument("--show", action='store_false', help="Путь")
 
-    parser.add_argument(
-        "-s", "--show", action="store_true", help="Показать только каталог"
-    )
+    parser.add_argument("--way", type=str, help="Путь")
 
     args = parser.parse_args(command_line)
 
     match args.where:
         case "home":
             if args.show:
-                if args.lvl > 0:
-                    tree(Path.home() / args.way, args.lvl, True)
-                else:
-                    tree(Path.home() / args.way, True)
+                tree(Path.home() / args.way, args.lvl, 1)
             else:
-                if args.lvl > 0:
-                    tree(Path.home() / args.way, args.lvl)
-                else:
-                    tree(Path.home() / args.way)
+                tree(Path.home() / args.way, args.lvl, 0)
 
         case "cwd":
             if args.show:
-                if args.lvl > 0:
-                    tree(Path.cwd(), args.lvl, True)
-                else:
-                    tree(Path.cwd(), True)
+                tree(Path.cwd(), args.lvl, 1)
             else:
-                if args.lvl > 0:
-                    tree(Path.cwd(), args.lvl)
-                else:
-                    tree(Path.cwd())
+                tree(Path.cwd(), args.lvl, 0)
 
         case "mine":
             if args.show:
-                if args.lvl > 0:
-                    tree(args.way, args.lvl, True)
-                else:
-                    tree(args.way, True)
+                tree(args.way, args.lvl, 1)
             else:
-                if args.lvl > 0:
-                    tree(args.way, args.lvl)
-                else:
-                    tree(args.way)
+                tree(args.way, args.lvl, 0)
 
         case args.where:
             print(f"Нет варианта - '{args.where}'", file=sys.stderr)
